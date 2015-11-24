@@ -1539,6 +1539,8 @@ static noinline void __init kernel_init_freeable(void)
 
 	do_basic_setup();
 
+	set_cpus_allowed_ptr(current, cpu_kthread_mask);
+
 	kunit_run_all_tests();
 
 	console_on_rootfs();

@@ -2512,6 +2512,29 @@ EXPORT_SYMBOL(__cpu_active_mask);
 atomic_t __num_online_cpus __read_mostly;
 EXPORT_SYMBOL(__num_online_cpus);
 
+struct cpumask __cpu_kthread_mask __read_mostly
+	= {CPU_BITS_ALL};
+EXPORT_SYMBOL(__cpu_kthread_mask);
+
+static int __init kthread_setup(char *str)
+{
+	cpumask_var_t tmp_mask;
+	int err;
+
+	alloc_bootmem_cpumask_var(&tmp_mask);
+
+	err = cpulist_parse(str, tmp_mask);
+	if (!err)
+		cpumask_copy(&__cpu_kthread_mask, tmp_mask);
+	else
+		pr_err("Cannot parse 'kthread_cpus=%s'; error %d\n", str, err);
+
+	free_bootmem_cpumask_var(tmp_mask);
+
+	return 1;
+}
+__setup("kthread_cpus=", kthread_setup);
+
 void init_cpu_present(const struct cpumask *src)
 {
 	cpumask_copy(&__cpu_present_mask, src);

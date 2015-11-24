@@ -80,6 +80,9 @@ static int call_usermodehelper_exec_async(void *data)
 	 */
 	current->fs->umask = 0022;
 
+	/* We can run only where init is allowed to run. */
+	set_cpus_allowed_ptr(current, cpu_kthread_mask);
+
 	/*
 	 * Our parent (unbound workqueue) runs with elevated scheduling
 	 * priority. Avoid propagating that into the userspace child.
