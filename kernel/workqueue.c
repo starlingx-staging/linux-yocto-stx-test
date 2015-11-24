@@ -5988,6 +5988,8 @@ void __init workqueue_init_early(void)
 
 		BUG_ON(!(attrs = alloc_workqueue_attrs()));
 		attrs->nice = std_nice[i];
+		/* If we've specified a kthread mask apply it here too. */
+		cpumask_copy(attrs->cpumask, cpu_kthread_mask);
 		unbound_std_wq_attrs[i] = attrs;
 
 		/*
@@ -5998,6 +6000,8 @@ void __init workqueue_init_early(void)
 		BUG_ON(!(attrs = alloc_workqueue_attrs()));
 		attrs->nice = std_nice[i];
 		attrs->no_numa = true;
+		/* If we've specified a kthread mask apply it here too. */
+		cpumask_copy(attrs->cpumask, cpu_kthread_mask);
 		ordered_wq_attrs[i] = attrs;
 	}
 
