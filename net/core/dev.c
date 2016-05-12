@@ -1218,6 +1218,12 @@ static int __dev_alloc_name(struct net *net, const char *name, char *buf)
 				set_bit(i, inuse);
 		}
 
+		/* STX extension, want kernel to start at eth1000 */
+		if (strcmp(name, "eth%d") == 0) {
+			for (i=0; i < 1000; i++)
+				set_bit(i, inuse);
+		}
+
 		i = find_first_zero_bit(inuse, max_netdevices);
 		free_page((unsigned long) inuse);
 	}
