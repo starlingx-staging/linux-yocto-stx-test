@@ -1869,6 +1869,11 @@
 			than 32-bit addressing. The default is to look
 			for translation below 32-bit and if not available
 			then look in the higher range.
+		eth_no_rmrr [Default Off]
+                        With this option provided, the kernel will ignore
+                        any specified RMRR regions specified by the BIOS
+                        for PCI ethernet devices.  Confirm with your hardware
+                        vendor the RMRR regions are indeed invalid first.
 		strict [Default Off]
 			With this option on every unmap_single operation will
 			result in a hardware IOTLB flush operation as opposed

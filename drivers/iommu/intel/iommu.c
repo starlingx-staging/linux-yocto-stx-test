@@ -354,6 +354,7 @@ static int dmar_map_gfx = 1;
 static int dmar_forcedac;
 static int intel_iommu_strict;
 static int intel_iommu_superpage = 1;
+static int intel_iommu_ethrmrr = 1;
 static int iommu_identity_mapping;
 static int intel_no_bounce;
 static int iommu_skip_te_disable;
@@ -448,6 +449,15 @@ static int __init intel_iommu_setup(char *str)
 		} else if (!strncmp(str, "forcedac", 8)) {
 			pr_info("Forcing DAC for PCI devices\n");
 			dmar_forcedac = 1;
+		} else if (!strncmp(str, "eth_no_rmrr", 11)) {
+			if (!iommu_default_passthrough()) {
+				printk(KERN_WARNING
+					"Intel-IOMMU: error - eth_no_rmrr requires iommu=pt\n");
+			} else {
+				printk(KERN_INFO
+					"Intel-IOMMU: ignoring ethernet RMRR values\n");
+				intel_iommu_ethrmrr = 0;
+			}
 		} else if (!strncmp(str, "strict", 6)) {
 			pr_info("Disable batched IOTLB flush\n");
 			intel_iommu_strict = 1;
@@ -2913,8 +2923,18 @@ static bool device_rmrr_is_relaxable(struct device *dev)
 	pdev = to_pci_dev(dev);
 	if (IS_USB_DEVICE(pdev) || IS_GFX_DEVICE(pdev))
 		return true;
-	else
+	else {
+		/* As a temporary workaround for issues seen on ProLiant DL380p,
+		 * allow the operator to ignore the RMRR settings for ethernet
+		 * devices.  Ideally the end user should contact their vendor
+		 * regarding why there are RMRR, as per mainline c875d2c1b8083
+		 * ("iommu/vt-d: Exclude devices using RMRRs from IOMMU API domains")
+		 * it seems that these make no sense at all.
+		 */
+		if ((pdev->class >> 8) == PCI_CLASS_NETWORK_ETHERNET && !intel_iommu_ethrmrr)
+			return true;
 		return false;
+	}
 }
 
 /*
