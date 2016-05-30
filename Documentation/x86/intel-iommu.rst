@@ -33,6 +33,24 @@ regions will fail. Hence BIOS uses RMRR to specify these regions along with
 devices that need to access these regions. OS is expected to setup
 unity mappings for these regions for these devices to access these regions.
 
+RMRR for other devices?
+-----------------------
+
+There are reports of BIOS out there that indicate RMRR regions for things
+like ethernet devices.  As per mainline commit c875d2c1b8083 ("iommu/vt-d:
+Exclude devices using RMRRs from IOMMU API domains") such a device is
+"fundamentally incompatible" with the IOMMU API and "we must prevent such
+devices from being used by the IOMMU API."  However, in the event that
+the RMRR indicated by the BIOS is assumed to be just a reporting error,
+there is an additional iommu boot arg that can be used to ignore RMRR
+settings for ethernet, i.e. "intel_iommu=on,eth_no_rmrr iommu=pt".
+Note that iommu=pt is required in order to eth_no_rmrr to have effect.
+
+If you use this setting, you should consult with your hardware vendor to
+confirm that it is just a reporting error, and that it truly is not
+actively using any DMA to/from RMRR, as otherwise system instability
+may result.
+
 How is IOVA generated?
 ----------------------
 
