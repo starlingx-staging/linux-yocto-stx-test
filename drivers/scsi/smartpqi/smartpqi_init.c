@@ -6576,6 +6576,7 @@ static struct scsi_host_template pqi_driver_template = {
 	.map_queues = pqi_map_queues,
 	.sdev_attrs = pqi_sdev_attrs,
 	.shost_attrs = pqi_shost_attrs,
+	.no_write_same = 1,
 };
 
 static int pqi_register_scsi(struct pqi_ctrl_info *ctrl_info)
