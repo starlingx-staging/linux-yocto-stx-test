@@ -1,5 +1,15 @@
 // SPDX-License-Identifier: GPL-2.0
-// Copyright (C) 2003 INTEL Corporation
+// Copyright (C) 2018 INTEL
+/*
+ * arch/arm/boot/dts/axm5508-cpus.dtsi
+ *
+ * Copyright (C) 2018 INTEL
+ *
+ * This program is free software; you can redistribute it and/or modify
+ * it under the terms of the GNU General Public License as published by
+ * the Free Software Foundation; either version 2 of the License, or
+ * (at your option) any later version.
+ */
 
 / {
 	cpus {
@@ -66,70 +76,6 @@
 			device_type = "cpu";
 			compatible = "arm,cortex-a15";
 			reg = <0x07>;
-			cpu-release-addr = <0>; // Fixed by the boot loader
-			clock-frequency = <0>;  // Placeholder
-		};
-
-		cpu@8 {
-			device_type = "cpu";
-			compatible = "arm,cortex-a15";
-			reg = <0x08>;
-			cpu-release-addr = <0>; // Fixed by the boot loader
-			clock-frequency = <0>;  // Placeholder
-		};
-
-		cpu@9 {
-			device_type = "cpu";
-			compatible = "arm,cortex-a15";
-			reg = <0x09>;
-			cpu-release-addr = <0>; // Fixed by the boot loader
-			clock-frequency = <0>;  // Placeholder
-		};
-
-		cpu@10 {
-			device_type = "cpu";
-			compatible = "arm,cortex-a15";
-			reg = <0x0a>;
-			cpu-release-addr = <0>; // Fixed by the boot loader
-			clock-frequency = <0>;  // Placeholder
-		};
-
-		cpu@11 {
-			device_type = "cpu";
-			compatible = "arm,cortex-a15";
-			reg = <0x0b>;
-			cpu-release-addr = <0>; // Fixed by the boot loader
-			clock-frequency = <0>;  // Placeholder
-		};
-
-		cpu@12 {
-			device_type = "cpu";
-			compatible = "arm,cortex-a15";
-			reg = <0x0c>;
-			cpu-release-addr = <0>; // Fixed by the boot loader
-			clock-frequency = <0>;  // Placeholder
-		};
-
-		cpu@13 {
-			device_type = "cpu";
-			compatible = "arm,cortex-a15";
-			reg = <0x0d>;
-			cpu-release-addr = <0>; // Fixed by the boot loader
-			clock-frequency = <0>;  // Placeholder
-		};
-
-		cpu@14 {
-			device_type = "cpu";
-			compatible = "arm,cortex-a15";
-			reg = <0x0e>;
-			cpu-release-addr = <0>; // Fixed by the boot loader
-			clock-frequency = <0>;  // Placeholder
-		};
-
-		cpu@15 {
-			device_type = "cpu";
-			compatible = "arm,cortex-a15";
-			reg = <0x0f>;
 			cpu-release-addr = <0>; // Fixed by the boot loader
 			clock-frequency = <0>;  // Placeholder
 		};
