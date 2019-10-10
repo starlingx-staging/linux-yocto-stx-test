@@ -138,7 +138,7 @@
 			reg = <0x20 0x20140000 0x00 0x1000>;
 			interrupts = <0 60 4>,
 				     <0 61 4>;
-
+			#dma-cells = <1>;
 			channel0 {
 				interrupts = <0 62 4>;
 			};
@@ -153,7 +153,7 @@
 			reg = <0x20 0x20141000 0x00 0x1000>;
 			interrupts = <0 64 4>,
 				     <0 65 4>;
-
+			#dma-cells = <1>;
 			channel0 {
 				interrupts = <0 66 4>;
 			};
@@ -353,6 +353,8 @@
 				compatible = "arm,pl011", "arm,primecell";
 				reg = <0x20 0x10080000 0 0x1000>;
 				interrupts = <0 56 4>;
+				dmas = <&gpdma0 8>, <&gpdma0 9>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 
@@ -360,6 +362,8 @@
 				compatible = "arm,pl011", "arm,primecell";
 				reg = <0x20 0x10081000 0 0x1000>;
 				interrupts = <0 57 4>;
+				dmas = <&gpdma0 8>, <&gpdma0 9>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 
@@ -367,6 +371,8 @@
 				compatible = "arm,pl011", "arm,primecell";
 				reg = <0x20 0x10082000 0 0x1000>;
 				interrupts = <0 58 4>;
+				dmas = <&gpdma0 8>, <&gpdma0 9>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 
@@ -374,6 +380,8 @@
 				compatible = "arm,pl011", "arm,primecell";
 				reg = <0x20 0x10083000 0 0x1000>;
 				interrupts = <0 59 4>;
+				dmas = <&gpdma0 8>, <&gpdma0 9>;
+				dma-names = "rx", "tx";
 				status = "disabled";
 			};
 
@@ -433,6 +441,7 @@
 				#size-cells = <0>;
 				reg = <0x20 0x10088000 0x00 0x1000>;
 				interrupts = <0 42 4>;
+				enable-dma = <0>;
 				num-cs = <5>;
 				cs-gpios = <&spics 0 1>,
 					   <&spics 1 1>,
