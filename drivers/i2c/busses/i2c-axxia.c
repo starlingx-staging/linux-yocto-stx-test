@@ -74,7 +74,8 @@
 				 MST_STATUS_ND)
 #define   MST_STATUS_ERR	(MST_STATUS_NAK |	\
 				 MST_STATUS_AL  |	\
-				 MST_STATUS_IP)
+				 MST_STATUS_IP  |       \
+				 MST_STATUS_TSS)
 #define MST_TX_BYTES_XFRD	0x50
 #define MST_RX_BYTES_XFRD	0x54
 #define SCL_HIGH_PERIOD		0x80
@@ -242,7 +243,7 @@ static int axxia_i2c_empty_rx_fifo(struct axxia_i2c_dev *idev)
 			 */
 			if (c <= 0 || c > I2C_SMBUS_BLOCK_MAX) {
 				idev->msg_err = -EPROTO;
-				i2c_int_disable(idev, ~MST_STATUS_TSS);
+				i2c_int_disable(idev, ~0);
 				complete(&idev->msg_complete);
 				break;
 			}
@@ -305,6 +306,8 @@ static irqreturn_t axxia_i2c_isr(int irq, void *_dev)
 			idev->msg_err = -EAGAIN;
 		else if (status & MST_STATUS_NAK)
 			idev->msg_err = -ENXIO;
+		else if (status & MST_STATUS_TSS)
+			idev->msg_err = -ETIMEDOUT;
 		else
 			idev->msg_err = -EIO;
 		dev_dbg(idev->dev, "error %#x, addr=%#x rx=%u/%u tx=%u/%u\n",
@@ -317,18 +320,13 @@ static irqreturn_t axxia_i2c_isr(int irq, void *_dev)
 		complete(&idev->msg_complete);
 	} else if (status & MST_STATUS_SCC) {
 		/* Stop completed */
-		i2c_int_disable(idev, ~MST_STATUS_TSS);
+		i2c_int_disable(idev, ~0);
 		complete(&idev->msg_complete);
 	} else if (status & MST_STATUS_SNS) {
 		/* Transfer done */
-		i2c_int_disable(idev, ~MST_STATUS_TSS);
+		i2c_int_disable(idev, ~0);
 		if (i2c_m_rd(idev->msg) && idev->msg_xfrd < idev->msg->len)
 			axxia_i2c_empty_rx_fifo(idev);
-		complete(&idev->msg_complete);
-	} else if (status & MST_STATUS_TSS) {
-		/* Transfer timeout */
-		idev->msg_err = -ETIMEDOUT;
-		i2c_int_disable(idev, ~MST_STATUS_TSS);
 		complete(&idev->msg_complete);
 	}
 
@@ -431,7 +429,7 @@ static int axxia_i2c_xfer_msg(struct axxia_i2c_dev *idev, struct i2c_msg *msg)
 
 static int axxia_i2c_stop(struct axxia_i2c_dev *idev)
 {
-	u32 int_mask = MST_STATUS_ERR | MST_STATUS_SCC | MST_STATUS_TSS;
+	u32 int_mask = MST_STATUS_ERR | MST_STATUS_SCC;
 	unsigned long time_left;
 
 	reinit_completion(&idev->msg_complete);
@@ -459,7 +457,6 @@ axxia_i2c_xfer(struct i2c_adapter *adap, struct i2c_msg msgs[], int num)
 	int ret = 0;
 
 	idev->msg_err = 0;
-	i2c_int_enable(idev, MST_STATUS_TSS);
 
 	for (i = 0; ret == 0 && i < num; ++i)
 		ret = axxia_i2c_xfer_msg(idev, &msgs[i]);
