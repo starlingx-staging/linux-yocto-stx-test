@@ -66,6 +66,26 @@ static void free_iommu(struct intel_iommu *iommu);
 
 extern const struct iommu_ops intel_iommu_ops;
 
+static int scope_mismatch_quirk;
+static void quirk_dmar_scope_mismatch(struct pci_dev *dev)
+{
+	pci_info(dev, "scope mismatch ignored\n");
+	scope_mismatch_quirk = 1;
+}
+
+/*
+ * We expect devices with endpoint scope to have normal PCI
+ * headers, and devices with bridge scope to have bridge PCI
+ * headers.  However some PCI devices may be listed in the
+ * DMAR table with bridge scope, even though they have a
+ * normal PCI header and vice versa. We don't declare a
+ * scope mismatch for the special cases below, even though
+ * the bios creates broken tables.
+ */
+/* Sky Lake-E PCI Express Root Port A */
+DECLARE_PCI_FIXUP_HEADER(PCI_VENDOR_ID_INTEL, 0x2030,
+			quirk_dmar_scope_mismatch);
+
 static void dmar_register_drhd_unit(struct dmar_drhd_unit *drhd)
 {
 	/*
@@ -255,7 +275,10 @@ int dmar_insert_dev_scope(struct dmar_pci_notify_info *info,
 		      info->dev->class >> 16 != PCI_BASE_CLASS_BRIDGE))) {
 			pr_warn("Device scope type does not match for %s\n",
 				pci_name(info->dev));
-			return -EINVAL;
+			if (!scope_mismatch_quirk)
+				return -EINVAL;
+			else
+				pr_warn("but continuing anyway\n");
 		}
 
 		for_each_dev_scope(devices, devices_cnt, i, tmp)
