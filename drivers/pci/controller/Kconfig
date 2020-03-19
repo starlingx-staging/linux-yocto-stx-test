@@ -21,6 +21,14 @@ config PCI_AXXIA_DW
 	 There are three PEI controllers on X9. Only RootComplex
 	 mode is supported.
 
+config PCI_AXXIA_DW_MSI_DATA_BELOW_4G
+       bool "Allocate MSI Data Below 4G"
+       depends on PCI_AXXIA_DW
+       default y
+       help
+        As endpoints may only support 32 bit addressing, limit the
+        allocation of MSI data to the first 4G of memory.
+
 config PCI_MVEBU
 	bool "Marvell EBU PCIe controller"
 	depends on ARCH_MVEBU || ARCH_DOVE || COMPILE_TEST
