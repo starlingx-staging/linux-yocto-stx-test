@@ -12,6 +12,7 @@
 #include <linux/interrupt.h>
 #include <linux/ratelimit.h>
 #include <linux/irq.h>
+#include <linux/of.h>
 
 #include "internals.h"
 
@@ -128,6 +129,12 @@ static bool migrate_one_irq(struct irq_desc *desc)
 	 * mask and therefore might keep/reassign the irq to the outgoing
 	 * CPU.
 	 */
+#ifdef CONFIG_ARCH_AXXIA
+	if (of_find_compatible_node(NULL, NULL, "axxia,axm5500") ||
+	    of_find_compatible_node(NULL, NULL, "axxia,axm5516"))
+		err = irq_do_set_affinity(d, affinity, true);
+	else
+#endif
 	err = irq_do_set_affinity(d, affinity, false);
 	if (err) {
 		pr_warn_ratelimited("IRQ%u: set affinity failed(%d).\n",
