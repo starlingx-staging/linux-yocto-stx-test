@@ -127,6 +127,32 @@
 #define MSR_AMD64_SMCA_MCx_DEADDR(x)	(MSR_AMD64_SMCA_MC0_DEADDR + 0x10*(x))
 #define MSR_AMD64_SMCA_MCx_MISCy(x, y)	((MSR_AMD64_SMCA_MC0_MISC1 + y) + (0x10*(x)))
 
+#define XEC(x, mask)			(((x) >> 16) & mask)
+
+/* mce.kflags flag bits for logging etc. */
+#define	MCE_HANDLED_CEC		BIT_ULL(0)
+#define	MCE_HANDLED_UC		BIT_ULL(1)
+#define	MCE_HANDLED_EXTLOG	BIT_ULL(2)
+#define	MCE_HANDLED_NFIT	BIT_ULL(3)
+#define	MCE_HANDLED_EDAC	BIT_ULL(4)
+#define	MCE_HANDLED_MCELOG	BIT_ULL(5)
+
+/*
+ * Indicates an MCE which has happened in kernel space but from
+ * which the kernel can recover simply by executing fixup_exception()
+ * so that an error is returned to the caller of the function that
+ * hit the machine check.
+ */
+#define MCE_IN_KERNEL_RECOV	BIT_ULL(6)
+
+/*
+ * Indicates an MCE that happened in kernel space while copying data
+ * from user. In this case fixup_exception() gets the kernel to the
+ * error exit for the copy function. Machine check handler can then
+ * treat it like a fault taken in user mode.
+ */
+#define MCE_IN_KERNEL_COPYIN	BIT_ULL(7)
+
 /*
  * This structure contains all data related to the MCE log.  Also
  * carries a signature to make it easier to find from external
@@ -349,5 +375,4 @@ umc_normaddr_to_sysaddr(u64 norm_addr, u16 nid, u8 umc, u64 *sys_addr)	{ return 
 #endif
 
 static inline void mce_hygon_feature_init(struct cpuinfo_x86 *c)	{ return mce_amd_feature_init(c); }
-
 #endif /* _ASM_X86_MCE_H */
