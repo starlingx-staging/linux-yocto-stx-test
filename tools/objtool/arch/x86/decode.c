@@ -69,13 +69,15 @@ bool arch_callee_saved_reg(unsigned char reg)
 int arch_decode_instruction(struct elf *elf, struct section *sec,
 			    unsigned long offset, unsigned int maxlen,
 			    unsigned int *len, enum insn_type *type,
-			    unsigned long *immediate, struct stack_op *op)
+			    unsigned long *immediate,
+			    struct list_head *ops_list)
 {
 	struct insn insn;
 	int x86_64, sign;
 	unsigned char op1, op2, rex = 0, rex_b = 0, rex_r = 0, rex_w = 0,
 		      rex_x = 0, modrm = 0, modrm_mod = 0, modrm_rm = 0,
 		      modrm_reg = 0, sib = 0;
+	struct stack_op *op;
 
 	x86_64 = is_x86_64(elf);
 	if (x86_64 == -1)
@@ -115,6 +117,10 @@ int arch_decode_instruction(struct elf *elf, struct section *sec,
 
 	if (insn.sib.nbytes)
 		sib = insn.sib.bytes[0];
+
+	op = calloc(1, sizeof(*op));
+	if (!op)
+		return -1;
 
 	switch (op1) {
 
@@ -429,9 +435,19 @@ int arch_decode_instruction(struct elf *elf, struct section *sec,
 		*type = INSN_RETURN;
 		break;
 
+	case 0xcf: /* iret */
+		*type = INSN_EXCEPTION_RETURN;
+
+		/* add $40, %rsp */
+		op->src.type = OP_SRC_ADD;
+		op->src.reg = CFI_SP;
+		op->src.offset = 5*8;
+		op->dest.type = OP_DEST_REG;
+		op->dest.reg = CFI_SP;
+		break;
+
 	case 0xca: /* retf */
 	case 0xcb: /* retf */
-	case 0xcf: /* iret */
 		*type = INSN_CONTEXT_SWITCH;
 		break;
 
@@ -476,6 +492,11 @@ int arch_decode_instruction(struct elf *elf, struct section *sec,
 	}
 
 	*immediate = insn.immediate.nbytes ? insn.immediate.value : 0;
+
+	if (*type == INSN_STACK || *type == INSN_EXCEPTION_RETURN)
+		list_add_tail(&op->list, ops_list);
+	else
+		free(op);
 
 	return 0;
 }
