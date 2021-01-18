@@ -89,6 +89,8 @@ static const struct mmc_fixup mmc_blk_fixups[] = {
 		  MMC_QUIRK_SEC_ERASE_TRIM_BROKEN),
 	MMC_FIXUP("VZL00M", CID_MANFID_SAMSUNG, CID_OEMID_ANY, add_quirk_mmc,
 		  MMC_QUIRK_SEC_ERASE_TRIM_BROKEN),
+	MMC_FIXUP("R1J57L", CID_MANFID_MICRON, CID_OEMID_ANY, add_quirk_mmc,
+                  MMC_QUIRK_SEC_ERASE_TRIM_BROKEN),
 
 	/*
 	 *  On Some Kingston eMMCs, performing trim can result in
@@ -98,6 +100,8 @@ static const struct mmc_fixup mmc_blk_fixups[] = {
 		  MMC_QUIRK_TRIM_BROKEN),
 	MMC_FIXUP("V10016", CID_MANFID_KINGSTON, CID_OEMID_ANY, add_quirk_mmc,
 		  MMC_QUIRK_TRIM_BROKEN),
+	MMC_FIXUP("R1J57L", CID_MANFID_MICRON, CID_OEMID_ANY, add_quirk_mmc,
+                  MMC_QUIRK_TRIM_BROKEN),
 
 	END_FIXUP
 };
