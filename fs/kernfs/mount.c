@@ -57,15 +57,14 @@ const struct super_operations kernfs_sops = {
  * Similar to kernfs_fh_get_inode, this one gets kernfs node from inode
  * number and generation
  */
-struct kernfs_node *kernfs_get_node_by_id(struct kernfs_root *root,
-	const union kernfs_node_id *id)
+struct kernfs_node *kernfs_get_node_by_id(struct kernfs_root *root, u64 id)
 {
 	struct kernfs_node *kn;
 
-	kn = kernfs_find_and_get_node_by_ino(root, id->ino);
+	kn = kernfs_find_and_get_node_by_ino(root, kernfs_id_ino(id));
 	if (!kn)
 		return NULL;
-	if (kn->id.generation != id->generation) {
+	if (kernfs_gen(kn) != kernfs_id_gen(id)) {
 		kernfs_put(kn);
 		return NULL;
 	}
@@ -363,18 +362,9 @@ void kernfs_kill_sb(struct super_block *sb)
 
 void __init kernfs_init(void)
 {
-
-	/*
-	 * the slab is freed in RCU context, so kernfs_find_and_get_node_by_ino
-	 * can access the slab lock free. This could introduce stale nodes,
-	 * please see how kernfs_find_and_get_node_by_ino filters out stale
-	 * nodes.
-	 */
 	kernfs_node_cache = kmem_cache_create("kernfs_node_cache",
 					      sizeof(struct kernfs_node),
-					      0,
-					      SLAB_PANIC | SLAB_TYPESAFE_BY_RCU,
-					      NULL);
+					      0, SLAB_PANIC, NULL);
 
 	/* Creates slab cache for kernfs inode attributes */
 	kernfs_iattrs_cache  = kmem_cache_create("kernfs_iattrs_cache",
