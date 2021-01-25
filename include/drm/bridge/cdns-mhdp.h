@@ -16,6 +16,7 @@
 #ifndef CDNS_MHDP_H_
 #define CDNS_MHDP_H_
 
+#include <linux/platform_device.h>
 #include <drm/drm_bridge.h>
 #include <drm/drm_connector.h>
 #include <drm/drm_dp_helper.h>
