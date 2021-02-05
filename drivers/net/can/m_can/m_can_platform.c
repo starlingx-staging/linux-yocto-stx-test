@@ -70,8 +70,10 @@ static int m_can_plat_probe(struct platform_device *pdev)
 		return -ENOMEM;
 
 	priv = devm_kzalloc(&pdev->dev, sizeof(*priv), GFP_KERNEL);
-	if (!priv)
-		return -ENOMEM;
+	if (!priv) {
+		ret = -ENOMEM;
+		goto failed_ret;
+	}
 
 	mcan_class->device_data = priv;
 
@@ -136,7 +138,11 @@ static int m_can_plat_probe(struct platform_device *pdev)
 
 	ret = m_can_class_register(mcan_class);
 
+	return ret;
+
 failed_ret:
+	free_candev(mcan_class->net);
+
 	return ret;
 }
 
