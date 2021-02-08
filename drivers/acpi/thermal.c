@@ -1060,8 +1060,6 @@ static void acpi_thermal_check_fn(struct work_struct *work)
 	struct acpi_thermal *tz = container_of(work, struct acpi_thermal,
 					       thermal_check_work);
 
-	if (!tz->tz_enabled)
-		return;
 	/*
 	 * In general, it is not sufficient to check the pending bit, because
 	 * subsequent instances of this function may be queued after one of them
