@@ -1571,8 +1571,10 @@ static int am65_cpsw_nuss_init_tx_chns(struct am65_cpsw_common *common)
 						    &tx_cfg);
 		if (IS_ERR(tx_chn->tx_chn)) {
 			ret = PTR_ERR(tx_chn->tx_chn);
-			dev_err(dev, "Failed to request tx dma channel %d\n",
-				ret);
+			if (ret == -EPROBE_DEFER)
+				dev_dbg(dev, "Failed to request tx dma channel %d\n", ret);
+			else
+				dev_err(dev, "Failed to request tx dma channel %d\n", ret);
 			goto err;
 		}
 
