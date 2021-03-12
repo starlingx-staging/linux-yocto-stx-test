@@ -8,6 +8,7 @@
  */
 
 #include <linux/device.h>
+#include <linux/delay.h>
 #include <linux/kmod.h>
 #include <linux/module.h>
 #include <linux/pm_runtime.h>
@@ -21,12 +22,17 @@
 #define XDOMAIN_UUID_RETRIES			10
 #define XDOMAIN_PROPERTIES_RETRIES		60
 #define XDOMAIN_PROPERTIES_CHANGED_RETRIES	10
+#define XDOMAIN_BONDING_WAIT			100  /* ms */
 
 struct xdomain_request_work {
 	struct work_struct work;
 	struct tb_xdp_header *pkg;
 	struct tb *tb;
 };
+
+static bool tb_xdomain_enabled = true;
+module_param_named(xdomain, tb_xdomain_enabled, bool, 0444);
+MODULE_PARM_DESC(xdomain, "allow XDomain protocol (default: true)");
 
 /* Serializes access to the properties and protocol handlers below */
 static DEFINE_MUTEX(xdomain_lock);
@@ -44,6 +50,11 @@ static LIST_HEAD(protocol_handlers);
 static const uuid_t tb_xdp_uuid =
 	UUID_INIT(0xb638d70e, 0x42ff, 0x40bb,
 		  0x97, 0xc2, 0x90, 0xe2, 0xc0, 0xb2, 0xff, 0x07);
+
+bool tb_is_xdomain_enabled(void)
+{
+	return tb_xdomain_enabled;
+}
 
 static bool tb_xdomain_match(const struct tb_cfg_request *req,
 			     const struct ctl_pkg *pkg)
@@ -501,6 +512,55 @@ void tb_unregister_protocol_handler(struct tb_protocol_handler *handler)
 }
 EXPORT_SYMBOL_GPL(tb_unregister_protocol_handler);
 
+static int rebuild_property_block(void)
+{
+	u32 *block, len;
+	int ret;
+
+	ret = tb_property_format_dir(xdomain_property_dir, NULL, 0);
+	if (ret < 0)
+		return ret;
+
+	len = ret;
+
+	block = kcalloc(len, sizeof(u32), GFP_KERNEL);
+	if (!block)
+		return -ENOMEM;
+
+	ret = tb_property_format_dir(xdomain_property_dir, block, len);
+	if (ret) {
+		kfree(block);
+		return ret;
+	}
+
+	kfree(xdomain_property_block);
+	xdomain_property_block = block;
+	xdomain_property_block_len = len;
+	xdomain_property_block_gen++;
+
+	return 0;
+}
+
+static void finalize_property_block(void)
+{
+	const struct tb_property *nodename;
+
+	/*
+	 * On first XDomain connection we set up the the system
+	 * nodename. This delayed here because userspace may not have it
+	 * set when the driver is first probed.
+	 */
+	mutex_lock(&xdomain_lock);
+	nodename = tb_property_find(xdomain_property_dir, "deviceid",
+				    TB_PROPERTY_TYPE_TEXT);
+	if (!nodename) {
+		tb_property_add_text(xdomain_property_dir, "deviceid",
+				     utsname()->nodename);
+		rebuild_property_block();
+	}
+	mutex_unlock(&xdomain_lock);
+}
+
 static void tb_xdp_handle_request(struct work_struct *work)
 {
 	struct xdomain_request_work *xw = container_of(work, typeof(*xw), work);
@@ -529,6 +589,8 @@ static void tb_xdp_handle_request(struct work_struct *work)
 		goto out;
 	}
 
+	finalize_property_block();
+
 	switch (pkg->type) {
 	case PROPERTIES_REQUEST:
 		ret = tb_xdp_properties_response(tb, ctl, route, sequence, uuid,
@@ -536,8 +598,6 @@ static void tb_xdp_handle_request(struct work_struct *work)
 		break;
 
 	case PROPERTIES_CHANGED_REQUEST: {
-		const struct tb_xdp_properties_changed *xchg =
-			(const struct tb_xdp_properties_changed *)pkg;
 		struct tb_xdomain *xd;
 
 		ret = tb_xdp_properties_changed_response(ctl, route, sequence);
@@ -547,10 +607,12 @@ static void tb_xdp_handle_request(struct work_struct *work)
 		 * the xdomain related to this connection as well in
 		 * case there is a change in services it offers.
 		 */
-		xd = tb_xdomain_find_by_uuid_locked(tb, &xchg->src_uuid);
+		xd = tb_xdomain_find_by_route_locked(tb, route);
 		if (xd) {
-			queue_delayed_work(tb->wq, &xd->get_properties_work,
-					   msecs_to_jiffies(50));
+			if (device_is_registered(&xd->dev)) {
+				queue_delayed_work(tb->wq, &xd->get_properties_work,
+						   msecs_to_jiffies(50));
+			}
 			tb_xdomain_put(xd);
 		}
 
@@ -617,7 +679,7 @@ EXPORT_SYMBOL_GPL(tb_register_service_driver);
 
 /**
  * tb_unregister_service_driver() - Unregister XDomain service driver
- * @xdrv: Driver to unregister
+ * @drv: Driver to unregister
  *
  * Unregisters XDomain service driver from the bus.
  */
@@ -703,7 +765,7 @@ static struct attribute *tb_service_attrs[] = {
 	NULL,
 };
 
-static struct attribute_group tb_service_attr_group = {
+static const struct attribute_group tb_service_attr_group = {
 	.attrs = tb_service_attrs,
 };
 
@@ -726,6 +788,7 @@ static void tb_service_release(struct device *dev)
 	struct tb_service *svc = container_of(dev, struct tb_service, dev);
 	struct tb_xdomain *xd = tb_service_parent(svc);
 
+	tb_service_debugfs_remove(svc);
 	ida_simple_remove(&xd->service_ids, svc->id);
 	kfree(svc->key);
 	kfree(svc);
@@ -840,6 +903,8 @@ static void enumerate_services(struct tb_xdomain *xd)
 		svc->dev.parent = &xd->dev;
 		dev_set_name(&svc->dev, "%s.%d", dev_name(&xd->dev), svc->id);
 
+		tb_service_debugfs_init(svc);
+
 		if (device_register(&svc->dev)) {
 			put_device(&svc->dev);
 			break;
@@ -892,6 +957,43 @@ static void tb_xdomain_restore_paths(struct tb_xdomain *xd)
 	}
 }
 
+static inline struct tb_switch *tb_xdomain_parent(struct tb_xdomain *xd)
+{
+	return tb_to_switch(xd->dev.parent);
+}
+
+static int tb_xdomain_update_link_attributes(struct tb_xdomain *xd)
+{
+	bool change = false;
+	struct tb_port *port;
+	int ret;
+
+	port = tb_port_at(xd->route, tb_xdomain_parent(xd));
+
+	ret = tb_port_get_link_speed(port);
+	if (ret < 0)
+		return ret;
+
+	if (xd->link_speed != ret)
+		change = true;
+
+	xd->link_speed = ret;
+
+	ret = tb_port_get_link_width(port);
+	if (ret < 0)
+		return ret;
+
+	if (xd->link_width != ret)
+		change = true;
+
+	xd->link_width = ret;
+
+	if (change)
+		kobject_uevent(&xd->dev.kobj, KOBJ_CHANGE);
+
+	return 0;
+}
+
 static void tb_xdomain_get_uuid(struct work_struct *work)
 {
 	struct tb_xdomain *xd = container_of(work, typeof(*xd),
@@ -911,10 +1013,8 @@ static void tb_xdomain_get_uuid(struct work_struct *work)
 		return;
 	}
 
-	if (uuid_equal(&uuid, xd->local_uuid)) {
+	if (uuid_equal(&uuid, xd->local_uuid))
 		dev_dbg(&xd->dev, "intra-domain loop detected\n");
-		return;
-	}
 
 	/*
 	 * If the UUID is different, there is another domain connected
@@ -1004,6 +1104,8 @@ static void tb_xdomain_get_properties(struct work_struct *work)
 
 	xd->properties = dir;
 	xd->property_block_gen = gen;
+
+	tb_xdomain_update_link_attributes(xd);
 
 	tb_xdomain_restore_paths(xd);
 
@@ -1111,16 +1213,42 @@ static ssize_t unique_id_show(struct device *dev, struct device_attribute *attr,
 }
 static DEVICE_ATTR_RO(unique_id);
 
+static ssize_t speed_show(struct device *dev, struct device_attribute *attr,
+			  char *buf)
+{
+	struct tb_xdomain *xd = container_of(dev, struct tb_xdomain, dev);
+
+	return sprintf(buf, "%u.0 Gb/s\n", xd->link_speed);
+}
+
+static DEVICE_ATTR(rx_speed, 0444, speed_show, NULL);
+static DEVICE_ATTR(tx_speed, 0444, speed_show, NULL);
+
+static ssize_t lanes_show(struct device *dev, struct device_attribute *attr,
+			  char *buf)
+{
+	struct tb_xdomain *xd = container_of(dev, struct tb_xdomain, dev);
+
+	return sprintf(buf, "%u\n", xd->link_width);
+}
+
+static DEVICE_ATTR(rx_lanes, 0444, lanes_show, NULL);
+static DEVICE_ATTR(tx_lanes, 0444, lanes_show, NULL);
+
 static struct attribute *xdomain_attrs[] = {
 	&dev_attr_device.attr,
 	&dev_attr_device_name.attr,
+	&dev_attr_rx_lanes.attr,
+	&dev_attr_rx_speed.attr,
+	&dev_attr_tx_lanes.attr,
+	&dev_attr_tx_speed.attr,
 	&dev_attr_unique_id.attr,
 	&dev_attr_vendor.attr,
 	&dev_attr_vendor_name.attr,
 	NULL,
 };
 
-static struct attribute_group xdomain_attr_group = {
+static const struct attribute_group xdomain_attr_group = {
 	.attrs = xdomain_attrs,
 };
 
@@ -1221,7 +1349,13 @@ struct tb_xdomain *tb_xdomain_alloc(struct tb *tb, struct device *parent,
 				    u64 route, const uuid_t *local_uuid,
 				    const uuid_t *remote_uuid)
 {
+	struct tb_switch *parent_sw = tb_to_switch(parent);
 	struct tb_xdomain *xd;
+	struct tb_port *down;
+
+	/* Make sure the downstream domain is accessible */
+	down = tb_port_at(route, parent_sw);
+	tb_port_unlock(down);
 
 	xd = kzalloc(sizeof(*xd), GFP_KERNEL);
 	if (!xd)
@@ -1325,6 +1459,70 @@ void tb_xdomain_remove(struct tb_xdomain *xd)
 }
 
 /**
+ * tb_xdomain_lane_bonding_enable() - Enable lane bonding on XDomain
+ * @xd: XDomain connection
+ *
+ * Lane bonding is disabled by default for XDomains. This function tries
+ * to enable bonding by first enabling the port and waiting for the CL0
+ * state.
+ *
+ * Return: %0 in case of success and negative errno in case of error.
+ */
+int tb_xdomain_lane_bonding_enable(struct tb_xdomain *xd)
+{
+	struct tb_port *port;
+	int ret;
+
+	port = tb_port_at(xd->route, tb_xdomain_parent(xd));
+	if (!port->dual_link_port)
+		return -ENODEV;
+
+	ret = tb_port_enable(port->dual_link_port);
+	if (ret)
+		return ret;
+
+	ret = tb_wait_for_port(port->dual_link_port, true);
+	if (ret < 0)
+		return ret;
+	if (!ret)
+		return -ENOTCONN;
+
+	ret = tb_port_lane_bonding_enable(port);
+	if (ret) {
+		tb_port_warn(port, "failed to enable lane bonding\n");
+		return ret;
+	}
+
+	tb_xdomain_update_link_attributes(xd);
+
+	dev_dbg(&xd->dev, "lane bonding enabled\n");
+	return 0;
+}
+EXPORT_SYMBOL_GPL(tb_xdomain_lane_bonding_enable);
+
+/**
+ * tb_xdomain_lane_bonding_disable() - Disable lane bonding
+ * @xd: XDomain connection
+ *
+ * Lane bonding is disabled by default for XDomains. If bonding has been
+ * enabled, this function can be used to disable it.
+ */
+void tb_xdomain_lane_bonding_disable(struct tb_xdomain *xd)
+{
+	struct tb_port *port;
+
+	port = tb_port_at(xd->route, tb_xdomain_parent(xd));
+	if (port->dual_link_port) {
+		tb_port_lane_bonding_disable(port);
+		tb_port_disable(port->dual_link_port);
+		tb_xdomain_update_link_attributes(xd);
+
+		dev_dbg(&xd->dev, "lane bonding disabled\n");
+	}
+}
+EXPORT_SYMBOL_GPL(tb_xdomain_lane_bonding_disable);
+
+/**
  * tb_xdomain_enable_paths() - Enable DMA paths for XDomain connection
  * @xd: XDomain connection
  * @transmit_path: HopID of the transmit path the other end is using to
@@ -1405,10 +1603,9 @@ struct tb_xdomain_lookup {
 static struct tb_xdomain *switch_find_xdomain(struct tb_switch *sw,
 	const struct tb_xdomain_lookup *lookup)
 {
-	int i;
+	struct tb_port *port;
 
-	for (i = 1; i <= sw->config.max_port_number; i++) {
-		struct tb_port *port = &sw->ports[i];
+	tb_switch_for_each_port(sw, port) {
 		struct tb_xdomain *xd;
 
 		if (port->xdomain) {
@@ -1565,35 +1762,6 @@ bool tb_xdomain_handle_request(struct tb *tb, enum tb_cfg_pkg_type type,
 	return ret > 0;
 }
 
-static int rebuild_property_block(void)
-{
-	u32 *block, len;
-	int ret;
-
-	ret = tb_property_format_dir(xdomain_property_dir, NULL, 0);
-	if (ret < 0)
-		return ret;
-
-	len = ret;
-
-	block = kcalloc(len, sizeof(u32), GFP_KERNEL);
-	if (!block)
-		return -ENOMEM;
-
-	ret = tb_property_format_dir(xdomain_property_dir, block, len);
-	if (ret) {
-		kfree(block);
-		return ret;
-	}
-
-	kfree(xdomain_property_block);
-	xdomain_property_block = block;
-	xdomain_property_block_len = len;
-	xdomain_property_block_gen++;
-
-	return 0;
-}
-
 static int update_xdomain(struct device *dev, void *data)
 {
 	struct tb_xdomain *xd;
@@ -1698,8 +1866,6 @@ EXPORT_SYMBOL_GPL(tb_unregister_property_dir);
 
 int tb_xdomain_init(void)
 {
-	int ret;
-
 	xdomain_property_dir = tb_property_create_dir(NULL);
 	if (!xdomain_property_dir)
 		return -ENOMEM;
@@ -1708,22 +1874,16 @@ int tb_xdomain_init(void)
 	 * Initialize standard set of properties without any service
 	 * directories. Those will be added by service drivers
 	 * themselves when they are loaded.
+	 *
+	 * We also add node name later when first connection is made.
 	 */
 	tb_property_add_immediate(xdomain_property_dir, "vendorid",
 				  PCI_VENDOR_ID_INTEL);
 	tb_property_add_text(xdomain_property_dir, "vendorid", "Intel Corp.");
 	tb_property_add_immediate(xdomain_property_dir, "deviceid", 0x1);
-	tb_property_add_text(xdomain_property_dir, "deviceid",
-			     utsname()->nodename);
 	tb_property_add_immediate(xdomain_property_dir, "devicerv", 0x80000100);
 
-	ret = rebuild_property_block();
-	if (ret) {
-		tb_property_free_dir(xdomain_property_dir);
-		xdomain_property_dir = NULL;
-	}
-
-	return ret;
+	return 0;
 }
 
 void tb_xdomain_exit(void)

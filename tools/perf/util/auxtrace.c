@@ -1089,29 +1089,79 @@ out_free:
 	return err;
 }
 
+static void unleader_evsel(struct evlist *evlist, struct evsel *leader)
+{
+	struct evsel *new_leader = NULL;
+	struct evsel *evsel;
+
+	/* Find new leader for the group */
+	evlist__for_each_entry(evlist, evsel) {
+		if (evsel->leader != leader || evsel == leader)
+			continue;
+		if (!new_leader)
+			new_leader = evsel;
+		evsel->leader = new_leader;
+	}
+
+	/* Update group information */
+	if (new_leader) {
+		zfree(&new_leader->group_name);
+		new_leader->group_name = leader->group_name;
+		leader->group_name = NULL;
+
+		new_leader->core.nr_members = leader->core.nr_members - 1;
+		leader->core.nr_members = 1;
+	}
+}
+
+static void unleader_auxtrace(struct perf_session *session)
+{
+	struct evsel *evsel;
+
+	evlist__for_each_entry(session->evlist, evsel) {
+		if (auxtrace__evsel_is_auxtrace(session, evsel) &&
+		    perf_evsel__is_group_leader(evsel)) {
+			unleader_evsel(session->evlist, evsel);
+		}
+	}
+}
+
 int perf_event__process_auxtrace_info(struct perf_session *session,
 				      union perf_event *event)
 {
 	enum auxtrace_type type = event->auxtrace_info.type;
+	int err;
 
 	if (dump_trace)
 		fprintf(stdout, " type: %u\n", type);
 
 	switch (type) {
 	case PERF_AUXTRACE_INTEL_PT:
-		return intel_pt_process_auxtrace_info(event, session);
+		err = intel_pt_process_auxtrace_info(event, session);
+		break;
 	case PERF_AUXTRACE_INTEL_BTS:
-		return intel_bts_process_auxtrace_info(event, session);
+		err = intel_bts_process_auxtrace_info(event, session);
+		break;
 	case PERF_AUXTRACE_ARM_SPE:
-		return arm_spe_process_auxtrace_info(event, session);
+		err = arm_spe_process_auxtrace_info(event, session);
+		break;
 	case PERF_AUXTRACE_CS_ETM:
-		return cs_etm__process_auxtrace_info(event, session);
+		err = cs_etm__process_auxtrace_info(event, session);
+		break;
 	case PERF_AUXTRACE_S390_CPUMSF:
-		return s390_cpumsf_process_auxtrace_info(event, session);
+		err = s390_cpumsf_process_auxtrace_info(event, session);
+		break;
 	case PERF_AUXTRACE_UNKNOWN:
 	default:
 		return -EINVAL;
 	}
+
+	if (err)
+		return err;
+
+	unleader_auxtrace(session);
+
+	return 0;
 }
 
 s64 perf_event__process_auxtrace(struct perf_session *session,
@@ -1166,6 +1216,47 @@ void itrace_synth_opts__set_default(struct itrace_synth_opts *synth_opts,
 	synth_opts->callchain_sz = PERF_ITRACE_DEFAULT_CALLCHAIN_SZ;
 	synth_opts->last_branch_sz = PERF_ITRACE_DEFAULT_LAST_BRANCH_SZ;
 	synth_opts->initial_skip = 0;
+}
+
+static int get_flag(const char **ptr, unsigned int *flags)
+{
+	while (1) {
+		char c = **ptr;
+
+		if (c >= 'a' && c <= 'z') {
+			*flags |= 1 << (c - 'a');
+			++*ptr;
+			return 0;
+		} else if (c == ' ') {
+			++*ptr;
+			continue;
+		} else {
+			return -1;
+		}
+	}
+}
+
+static int get_flags(const char **ptr, unsigned int *plus_flags, unsigned int *minus_flags)
+{
+	while (1) {
+		switch (**ptr) {
+		case '+':
+			++*ptr;
+			if (get_flag(ptr, plus_flags))
+				return -1;
+			break;
+		case '-':
+			++*ptr;
+			if (get_flag(ptr, minus_flags))
+				return -1;
+			break;
+		case ' ':
+			++*ptr;
+			break;
+		default:
+			return 0;
+		}
+	}
 }
 
 /*
@@ -1255,9 +1346,15 @@ int itrace_parse_synth_opts(const struct option *opt, const char *str,
 			break;
 		case 'e':
 			synth_opts->errors = true;
+			if (get_flags(&p, &synth_opts->error_plus_flags,
+				      &synth_opts->error_minus_flags))
+				goto out_err;
 			break;
 		case 'd':
 			synth_opts->log = true;
+			if (get_flags(&p, &synth_opts->log_plus_flags,
+				      &synth_opts->log_minus_flags))
+				goto out_err;
 			break;
 		case 'c':
 			synth_opts->branches = true;
@@ -1267,8 +1364,12 @@ int itrace_parse_synth_opts(const struct option *opt, const char *str,
 			synth_opts->branches = true;
 			synth_opts->returns = true;
 			break;
+		case 'G':
 		case 'g':
-			synth_opts->callchain = true;
+			if (p[-1] == 'G')
+				synth_opts->add_callchain = true;
+			else
+				synth_opts->callchain = true;
 			synth_opts->callchain_sz =
 					PERF_ITRACE_DEFAULT_CALLCHAIN_SZ;
 			while (*p == ' ' || *p == ',')
@@ -2393,4 +2494,13 @@ void auxtrace__free(struct perf_session *session)
 		return;
 
 	return session->auxtrace->free(session);
+}
+
+bool auxtrace__evsel_is_auxtrace(struct perf_session *session,
+				 struct evsel *evsel)
+{
+	if (!session->auxtrace || !session->auxtrace->evsel_is_auxtrace)
+		return false;
+
+	return session->auxtrace->evsel_is_auxtrace(session, evsel);
 }
