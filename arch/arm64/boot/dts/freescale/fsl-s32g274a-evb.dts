@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright 2019-2020 NXP
+ * Copyright 2019-2021 NXP
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License as published by
@@ -18,34 +18,6 @@
 
 	chosen {
 		stdout-path = "serial0:115200n8";
-	};
-
-	memory_DDR0@80000000 {
-		device_type = "memory";
-		reg = <0 0x80000000 0 0x40000000>;
-	};
-
-	memory_DDR1@c0000000 {
-		device_type = "memory";
-		reg = <0 0xc0000000 0 0x40000000>;
-	};
-
-	memory_DDR2@880000000 {
-		device_type = "memory";
-		reg = <0x8 0x80000000 0 0x80000000>;
-	};
-
-	reserved-memory {
-		#address-cells = <2>;
-		#size-cells = <2>;
-		ranges;
-
-		pfe_reserved: pfebufs@83400000 {
-			compatible = "fsl,s32g-pfe-ddr", "shared-dma-pool";
-			reg = <0 0x83400000 0 0xc00000>;
-			no-map;
-			status = "okay";
-		};
 	};
 
 	usbphynop: usbphynop {
@@ -66,13 +38,15 @@
 };
 
 &qspi {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_qspi>;
 	status = "okay";
 
 	mx25uw51245g@0 {
 		#address-cells = <1>;
 		#size-cells = <1>;
 		compatible = "jedec,spi-nor";
-		spi-max-frequency = <133000000>;
+		spi-max-frequency = <200000000>;
 		spi-tx-bus-width = <8>;
 		spi-rx-bus-width = <8>;
 		reg = <0>;
@@ -98,13 +72,20 @@
 	};
 };
 
+&pfe_reserved_slave {
+	status = "disabled";
+};
+
+&pfe_slave {
+	status = "disabled";
+};
+
 &pfe {
 	status = "okay";
 	memory-region = <&pfe_reserved>;
 };
 
 &pfe0_if {
-	fsl,pfeng-hif-channel = <0>;
 	phy-mode = "sgmii";
 	phy-handle = <&mdio_a_phy4>;
 };
@@ -112,7 +93,6 @@
 &pfe1_if {
 	/* RGMII port occupied by GMAC0 */
 	status = "disabled";
-	fsl,pfeng-hif-channel = <1>;
 	phy-mode = "rgmii";
 	phy-handle = <&mdio_c_phy4>;
 	pinctrl-names = "default";
@@ -120,7 +100,6 @@
 };
 
 &pfe2_if {
-	fsl,pfeng-hif-channel = <2>;
 	phy-mode = "rgmii";
 	fixed-link {
 		speed = <1000>;
@@ -225,6 +204,7 @@
 &i2c4 {
 	status = "okay";
 };
+
 &usdhc0 {
 	status = "okay";
 };
@@ -786,3 +766,64 @@
 	pinctrl-0 = <&pinctrl_gpioeirq>;
 	status = "okay";
 };
+
+&llce_can1 {
+	status = "okay";
+};
+
+&llce_can2 {
+	status = "okay";
+};
+
+&llce_can3 {
+	status = "okay";
+};
+
+&llce_can4 {
+	status = "okay";
+};
+
+&llce_can5 {
+	status = "okay";
+};
+
+&llce_can6 {
+	status = "okay";
+};
+
+&llce_can7 {
+	status = "okay";
+};
+
+&llce_can8 {
+	status = "okay";
+};
+
+&llce_can9 {
+	status = "okay";
+};
+
+&llce_can10 {
+	status = "okay";
+};
+
+&llce_can11 {
+	status = "okay";
+};
+
+&llce_can12 {
+	status = "okay";
+};
+
+&llce_can13 {
+	status = "okay";
+};
+
+&llce_can14 {
+	status = "okay";
+};
+
+&llce_can15 {
+	status = "okay";
+};
+

@@ -1,6 +1,6 @@
 // SPDX-License-Identifier: GPL-2.0-or-later
 /*
- * Copyright 2020 NXP
+ * Copyright 2020-2021 NXP
  */
 
 /dts-v1/;
@@ -12,34 +12,6 @@
 
 	chosen {
 		stdout-path = "serial0:115200n8";
-	};
-
-	memory_DDR0@80000000 {
-		device_type = "memory";
-		reg = <0 0x80000000 0 0x40000000>;
-	};
-
-	memory_DDR1@c0000000 {
-		device_type = "memory";
-		reg = <0 0xc0000000 0 0x40000000>;
-	};
-
-	memory_DDR2@880000000 {
-		device_type = "memory";
-		reg = <0x8 0x80000000 0 0x80000000>;
-	};
-
-	reserved-memory {
-		#address-cells = <2>;
-		#size-cells = <2>;
-		ranges;
-
-		pfe_reserved: pfebufs@83400000 {
-			compatible = "shared-dma-pool";
-			reg = <0 0x83400000 0 0xc00000>;
-			no-map;
-			status = "okay";
-		};
 	};
 };
 
@@ -103,6 +75,94 @@
 	status = "okay";
 };
 
+&llce0_sram {
+	status = "okay";
+};
+
+&llce1_sram {
+	status = "okay";
+};
+
+&llce2_sram {
+	status = "okay";
+};
+
+&llce3_sram {
+	status = "okay";
+};
+
+&llce_shmem {
+	status = "okay";
+};
+
+&llce_boot_status {
+	status = "okay";
+};
+
+&llce_can0 {
+	status = "okay";
+};
+
+&llce_can1 {
+	status = "okay";
+};
+
+&llce_can2 {
+	status = "okay";
+};
+
+&llce_can3 {
+	status = "okay";
+};
+
+&llce_can4 {
+	status = "okay";
+};
+
+&llce_can5 {
+	status = "okay";
+};
+
+&llce_can6 {
+	status = "okay";
+};
+
+&llce_can7 {
+	status = "okay";
+};
+
+&llce_can8 {
+	status = "okay";
+};
+
+&llce_can9 {
+	status = "okay";
+};
+
+&llce_can10 {
+	status = "okay";
+};
+
+&llce_can11 {
+	status = "okay";
+};
+
+&llce_can12 {
+	status = "okay";
+};
+
+&llce_can13 {
+	status = "okay";
+};
+
+&llce_can14 {
+	status = "okay";
+};
+
+&llce_can15 {
+	status = "okay";
+};
+
 &pcie0 {
 	status = "okay";
 };
@@ -128,12 +188,12 @@
 	pinctrl-0 = <&pinctrl0_pfe0_mdio>, <&pinctrl1_pfe0_mdio>;
 	status = "okay";
 
-	phy1: phy@1 {
-		reg = <1>;
+	phy5: phy@5 {
+		reg = <5>;
 	};
 
-	phy2: phy@2 {
-		reg = <2>;
+	phy6: phy@6 {
+		reg = <6>;
 	};
 
 	phy25: phy@25 {

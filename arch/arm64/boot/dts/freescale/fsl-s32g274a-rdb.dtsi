@@ -2,7 +2,7 @@
 /*
  * Device Tree file for S32G274ARDB Board.
  *
- * Copyright 2019-2020 NXP
+ * Copyright 2019-2021 NXP
  *
  */
 
@@ -12,34 +12,6 @@
 / {
 	chosen {
 		stdout-path = "serial0:115200n8";
-	};
-
-	memory_DDR0@80000000 {
-		device_type = "memory";
-		reg = <0 0x80000000 0 0x40000000>;
-	};
-
-	memory_DDR1@c0000000 {
-		device_type = "memory";
-		reg = <0 0xc0000000 0 0x40000000>;
-	};
-
-	memory_DDR2@880000000 {
-		device_type = "memory";
-		reg = <0x8 0x80000000 0 0x80000000>;
-	};
-
-	reserved-memory {
-		#address-cells = <2>;
-		#size-cells = <2>;
-		ranges;
-
-		pfe_reserved: pfebufs@83400000 {
-			compatible = "fsl,s32g-pfe-ddr", "shared-dma-pool";
-			reg = <0 0x83400000 0 0xc00000>;
-			no-map;
-			status = "okay";
-		};
 	};
 
 	usbphynop: usbphynop {
@@ -54,7 +26,6 @@
 };
 
 &pfe0_if {
-	fsl,pfeng-hif-channel = <0>;
 	phy-mode = "sgmii";
 	fixed-link {
 		speed = <2500>;
@@ -63,7 +34,6 @@
 };
 
 &pfe2_if {
-	fsl,pfeng-hif-channel = <2>;
 	phy-mode = "rgmii";
 	phy-handle = <&mdio_b_phy4>;
 	pinctrl-names = "default";
@@ -627,6 +597,8 @@
 };
 
 &qspi {
+	pinctrl-names = "default";
+	pinctrl-0 = <&pinctrl0_qspi>;
 	status = "okay";
 
 	mx25uw51245g@0 {
@@ -665,3 +637,52 @@
 	pinctrl-0 = <&pinctrl_gpioeirq>;
 	status = "okay";
 };
+
+&llce_can0 {
+	status = "okay";
+};
+
+&llce_can1 {
+	status = "okay";
+};
+
+&llce_can2 {
+	status = "okay";
+};
+
+&llce_can3 {
+	status = "okay";
+};
+
+&llce_can4 {
+	status = "okay";
+};
+
+&llce_can5 {
+	status = "okay";
+};
+
+&llce_can6 {
+	status = "okay";
+};
+
+&llce_can7 {
+	status = "okay";
+};
+
+&llce_can8 {
+	status = "okay";
+};
+
+&llce_can9 {
+	status = "okay";
+};
+
+&llce_can14 {
+	status = "okay";
+};
+
+&llce_can15 {
+	status = "okay";
+};
+
