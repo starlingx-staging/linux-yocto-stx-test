@@ -2582,6 +2582,9 @@ static inline void __d_add(struct dentry *dentry, struct inode *inode)
 {
 	struct inode *dir = NULL;
 	unsigned n;
+#ifdef CONFIG_PREEMPT_RT_FULL
+	preempt_disable();
+#endif
 	spin_lock(&dentry->d_lock);
 	if (unlikely(d_in_lookup(dentry))) {
 		dir = dentry->d_parent->d_inode;
@@ -2600,6 +2603,9 @@ static inline void __d_add(struct dentry *dentry, struct inode *inode)
 	if (dir)
 		end_dir_add(dir, n);
 	spin_unlock(&dentry->d_lock);
+#ifdef CONFIG_PREEMPT_RT_FULL
+	preempt_enable();
+#endif
 	if (inode)
 		spin_unlock(&inode->i_lock);
 }
