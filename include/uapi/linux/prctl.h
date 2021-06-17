@@ -63,6 +63,22 @@
 # define PR_ENDIAN_LITTLE	1	/* True little endian mode */
 # define PR_ENDIAN_PPC_LITTLE	2	/* "PowerPC" pseudo little endian */
 
+#define PR_DO_NOTIFY_TASK_STATE 17     /* Set/get notification for task
+                                          state changes */
+
+/* This is the data structure for requestion process death
+ * (and other state change) information.  Sig of -1 means
+ * query, sig of 0 means deregistration, positive sig means
+ * that you want to set it.  sig and events are value-result
+ * and will be updated with the previous values on every
+ * successful call.
+ */
+struct task_state_notify_info {
+	int pid;
+	int sig;
+	unsigned int events;
+};
+
 /* Get/set process seccomp mode */
 #define PR_GET_SECCOMP	21
 #define PR_SET_SECCOMP	22

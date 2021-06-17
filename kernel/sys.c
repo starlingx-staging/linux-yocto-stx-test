@@ -73,6 +73,9 @@
 #include <asm/unistd.h>
 
 #include "uid16.h"
+#ifdef CONFIG_SIGEXIT
+#include "death_notify.h"
+#endif
 
 #ifndef SET_UNALIGN_CTL
 # define SET_UNALIGN_CTL(a, b)	(-EINVAL)
@@ -2416,6 +2419,11 @@ SYSCALL_DEFINE5(prctl, int, option, unsigned long, arg2, unsigned long, arg3,
 		else
 			error = PR_MCE_KILL_DEFAULT;
 		break;
+#ifdef CONFIG_SIGEXIT
+	case PR_DO_NOTIFY_TASK_STATE:
+		error = do_notify_task_state(arg2);
+		break;
+#endif
 	case PR_SET_MM:
 		error = prctl_set_mm(arg2, arg3, arg4, arg5);
 		break;
