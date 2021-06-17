@@ -68,6 +68,9 @@
 #include <linux/uaccess.h>
 #include <asm/unistd.h>
 #include <asm/mmu_context.h>
+#ifdef CONFIG_SIGEXIT
+#include "death_notify.h"
+#endif
 
 static void __unhash_process(struct task_struct *p, bool group_dead)
 {
@@ -194,6 +197,9 @@ repeat:
 	cgroup_release(p);
 
 	write_lock_irq(&tasklist_lock);
+#ifdef CONFIG_SIGEXIT
+	release_notify_others(p);
+#endif
 	ptrace_release_task(p);
 	thread_pid = get_pid(p->thread_pid);
 	__exit_signal(p);

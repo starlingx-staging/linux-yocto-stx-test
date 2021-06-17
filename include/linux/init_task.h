@@ -25,6 +25,15 @@
 extern struct files_struct init_files;
 extern struct fs_struct init_fs;
 extern struct nsproxy init_nsproxy;
+
+#ifdef CONFIG_SIGEXIT
+#define INIT_SIGEXIT(tsk) \
+	.notify         = LIST_HEAD_INIT(tsk.notify),                   \
+	.monitor        = LIST_HEAD_INIT(tsk.monitor),
+#else
+#define INIT_SIGEXIT(tsk)
+#endif
+
 extern struct group_info init_groups;
 extern struct cred init_cred;
 
