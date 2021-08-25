@@ -3776,6 +3776,10 @@ static struct action_data *onmatch_parse(struct trace_array *tr, char *str)
 		ret = -ENOMEM;
 		goto free;
 	}
+	/* Pointers to strings are just pointers and dangerous to dereference */
+	if (is_string_field(field) &&
+	    (field->filter_type != FILTER_PTR_STRING)) {
+		flags |= HIST_FIELD_FL_STRING;
 
 	strsep(&str, ".");
 	if (!str) {
@@ -4602,8 +4606,6 @@ static inline void add_to_key(char *compound_key, void *key,
 		field = key_field->field;
 		if (field->filter_type == FILTER_DYN_STRING)
 			size = *(u32 *)(rec + field->offset) >> 16;
-		else if (field->filter_type == FILTER_PTR_STRING)
-			size = strlen(key);
 		else if (field->filter_type == FILTER_STATIC_STRING)
 			size = field->size;
 
