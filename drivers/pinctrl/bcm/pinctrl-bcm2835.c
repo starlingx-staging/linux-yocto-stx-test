@@ -1291,6 +1291,10 @@ static int bcm2835_pinctrl_probe(struct platform_device *pdev)
 	}
 
 	return 0;
+
+out_remove:
+	pinctrl_remove_gpio_range(pc->pctl_dev, &pc->gpio_range);
+	return err;
 }
 
 static struct platform_driver bcm2835_pinctrl_driver = {
