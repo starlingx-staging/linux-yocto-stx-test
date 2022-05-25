@@ -118,10 +118,15 @@ EXPORT_SYMBOL(phy_print_status);
  */
 static int phy_clear_interrupt(struct phy_device *phydev)
 {
-	if (phydev->drv->ack_interrupt)
-		return phydev->drv->ack_interrupt(phydev);
+	int ret = 0;
 
-	return 0;
+	if (phydev->drv->ack_interrupt) {
+		mutex_lock(&phydev->lock);
+		ret = phydev->drv->ack_interrupt(phydev);
+		mutex_unlock(&phydev->lock);
+	}
+
+	return ret;
 }
 
 /**
@@ -813,11 +818,11 @@ static irqreturn_t phy_interrupt(int irq, void *phy_dat)
 {
 	struct phy_device *phydev = phy_dat;
 
-	if (phydev->drv->did_interrupt && !phydev->drv->did_interrupt(phydev))
+	if (phydev->drv->did_interrupt && !phy_did_interrupt(phydev))
 		return IRQ_NONE;
 
 	if (phydev->drv->handle_interrupt) {
-		if (phydev->drv->handle_interrupt(phydev))
+		if (phy_handle_interrupt(phydev))
 			goto phy_err;
 	} else {
 		/* reschedule state queue work to run as soon as possible */

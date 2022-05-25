@@ -185,5 +185,6 @@ struct plat_stmmacenet_data {
 	bool en_tx_lpi_clockgating;
 	int has_xgmac;
 	u32 quirk_mask_id;
+	bool sph_disable;
 };
 #endif
