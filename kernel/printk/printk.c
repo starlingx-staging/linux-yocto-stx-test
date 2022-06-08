@@ -3556,7 +3556,8 @@ bool pr_flush(int timeout_ms, bool reset_on_progress)
 
 	may_sleep = (preemptible() &&
 		     !in_softirq() &&
-		     system_state >= SYSTEM_RUNNING);
+		     system_state >= SYSTEM_RUNNING &&
+		     !rcu_preempt_depth());
 
 	seq = prb_next_seq(prb);
 
