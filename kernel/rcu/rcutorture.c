@@ -2075,6 +2075,19 @@ static int rcutorture_booster_init(unsigned int cpu)
 	if (boost_tasks[cpu] != NULL)
 		return 0;  /* Already created, nothing more to do. */
 
+	// Testing RCU priority boosting requires rcutorture do
+	// some serious abuse.  Counter this by running ksoftirqd
+	// at higher priority.
+	if (IS_BUILTIN(CONFIG_RCU_TORTURE_TEST)) {
+		struct sched_param sp;
+		struct task_struct *t;
+
+		t = per_cpu(ksoftirqd, cpu);
+		WARN_ON_ONCE(!t);
+		sp.sched_priority = 2;
+		sched_setscheduler_nocheck(t, SCHED_FIFO, &sp);
+	}
+
 	/* Don't allow time recalculation while creating a new task. */
 	mutex_lock(&boost_mutex);
 	rcu_torture_disable_rt_throttle();
