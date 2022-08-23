@@ -195,7 +195,7 @@ pci_ers_result_t pcie_do_recovery(struct pci_dev *dev,
 
 	pci_dbg(bridge, "broadcast error_detected message\n");
 	if (state == pci_channel_io_frozen) {
-		pci_walk_bus(bus, report_frozen_detected, &status);
+		pci_walk_bridge(bridge, report_frozen_detected, &status);
 		/*
 		 * After resetting the link using reset_link() call, the
 		 * possible value of error status is either
@@ -214,7 +214,7 @@ pci_ers_result_t pcie_do_recovery(struct pci_dev *dev,
 		 * status result of report_error_detected() also helps EDR based
 		 * error recovery.
 		 */
-		status = reset_link(dev);
+		status = reset_subordinates(dev);
 		if (status == PCI_ERS_RESULT_RECOVERED) {
 			status = PCI_ERS_RESULT_NEED_RESET;
 		} else {
