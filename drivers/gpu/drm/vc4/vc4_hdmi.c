@@ -108,8 +108,6 @@ static bool vc4_hdmi_mode_needs_scrambling(const struct drm_display_mode *mode)
 	return (mode->clock * 1000) > HDMI_14_MAX_TMDS_CLK;
 }
 
-#define HDMI_14_MAX_TMDS_CLK   (340 * 1000 * 1000)
-
 static int vc4_hdmi_debugfs_regs(struct seq_file *m, void *unused)
 {
 	struct drm_info_node *node = (struct drm_info_node *)m->private;
@@ -1537,7 +1535,6 @@ static int vc4_hdmi_audio_init(struct vc4_hdmi *vc4_hdmi)
 	const __be32 *addr;
 	int index, len;
 	int ret;
-	int len;
 
 	if (!of_find_property(dev->of_node, "dmas", &len) ||
 	    len == 0) {
