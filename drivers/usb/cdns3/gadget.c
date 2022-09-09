@@ -402,6 +402,28 @@ static void __cdns3_descmiss_copy_data(struct usb_request *request,
 	}
 }
 
+static void cdns3_wa2_remove_old_request(struct cdns3_endpoint *priv_ep)
+{
+	struct cdns3_request *priv_req;
+
+	while (!list_empty(&priv_ep->wa2_descmiss_req_list)) {
+		u8 chain;
+
+		priv_req = cdns3_next_priv_request(&priv_ep->wa2_descmiss_req_list);
+		chain = !!(priv_req->flags & REQUEST_INTERNAL_CH);
+
+		trace_cdns3_wa2(priv_ep, "removes eldest request");
+
+		kfree(priv_req->request.buf);
+		list_del_init(&priv_req->list);
+		cdns3_gadget_ep_free_request(&priv_ep->endpoint,
+					     &priv_req->request);
+		--priv_ep->wa2_counter;
+
+		if (!chain)
+			break;
+	}
+}
 
 /**
  * cdns3_descmiss_copy_data copy data from internal requests to request queued
@@ -1986,6 +2008,58 @@ not_found:
 	if (ep == priv_dev->gadget.ep0)
 		flush_work(&priv_dev->pending_status_wq);
 
+		if (!(ep_sts_reg & EP_STS_DBUSY))
+			cdns3_ep_stall_flush(priv_ep);
+		else
+			priv_ep->flags |= EP_STALL_PENDING;
+	}
+}
+
+/**
+ * __cdns3_gadget_ep_clear_halt Clears stall on selected endpoint
+ * Should be called after acquiring spin_lock and selecting ep
+ * @ep: endpoint object to clear stall on
+ */
+int __cdns3_gadget_ep_clear_halt(struct cdns3_endpoint *priv_ep)
+{
+	struct cdns3_device *priv_dev = priv_ep->cdns3_dev;
+	struct usb_request *request;
+	struct cdns3_request *priv_req;
+	struct cdns3_trb *trb = NULL;
+	struct cdns3_trb trb_tmp;
+	int ret;
+	int val;
+
+	trace_cdns3_halt(priv_ep, 0, 0);
+
+	request = cdns3_next_request(&priv_ep->pending_req_list);
+	if (request) {
+		priv_req = to_cdns3_request(request);
+		trb = priv_req->trb;
+		if (trb) {
+			trb_tmp = *trb;
+			trb->control = trb->control ^ TRB_CYCLE;
+		}
+	}
+
+	writel(EP_CMD_CSTALL | EP_CMD_EPRST, &priv_dev->regs->ep_cmd);
+
+	/* wait for EPRST cleared */
+	ret = readl_poll_timeout_atomic(&priv_dev->regs->ep_cmd, val,
+					!(val & EP_CMD_EPRST), 1, 100);
+	if (ret)
+		return -EINVAL;
+
+	priv_ep->flags &= ~(EP_STALLED | EP_STALL_PENDING);
+
+	if (request) {
+		if (trb)
+			*trb = trb_tmp;
+
+		cdns3_rearm_transfer(priv_ep, 1);
+	}
+
+	cdns3_start_all_request(priv_dev, priv_ep);
 	return ret;
 }
 
