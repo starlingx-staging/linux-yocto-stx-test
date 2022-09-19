@@ -9,10 +9,14 @@
 
 #include <linux/platform_device.h>
 
+#include "../host/xhci-plat.h"
 #include "../host/xhci.h"
 
 #include "core.h"
 
+static const struct xhci_plat_priv dwc3_xhci_plat_priv = {
+	.quirks = XHCI_SKIP_PHY_INIT,
+};
 
 #define XHCI_HCSPARAMS1		0x4
 #define XHCI_PORTSC_BASE	0x400
@@ -51,6 +55,10 @@ static void dwc3_power_off_all_roothub_ports(struct dwc3 *dwc)
 	} else
 		dev_err(dwc->dev, "xhci base reg invalid\n");
 }
+
+static const struct xhci_plat_priv dwc3_xhci_plat_priv = {
+	.quirks = XHCI_SKIP_PHY_INIT,
+};
 
 static int dwc3_host_get_irq(struct dwc3 *dwc)
 {
@@ -134,6 +142,11 @@ int dwc3_host_init(struct dwc3 *dwc)
 		goto err;
 	}
 
+	ret = platform_device_add_data(xhci, &dwc3_xhci_plat_priv,
+					sizeof(dwc3_xhci_plat_priv));
+	if (ret)
+		goto err;
+
 	memset(props, 0, sizeof(struct property_entry) * ARRAY_SIZE(props));
 
 	if (dwc->usb3_lpm_capable)
@@ -185,4 +198,5 @@ err:
 void dwc3_host_exit(struct dwc3 *dwc)
 {
 	platform_device_unregister(dwc->xhci);
+	dwc->xhci = NULL;
 }
