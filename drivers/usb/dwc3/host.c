@@ -12,6 +12,7 @@
 #include <linux/of_device.h>
 #include <linux/usb/xhci_pdriver.h>
 
+#include "../host/xhci-plat.h"
 #include "core.h"
 
 void dwc3_host_wakeup_capable(struct device *dev, bool wakeup)
@@ -19,6 +20,10 @@ void dwc3_host_wakeup_capable(struct device *dev, bool wakeup)
 	dwc3_simple_wakeup_capable(dev, wakeup);
 }
 EXPORT_SYMBOL(dwc3_host_wakeup_capable);
+
+static const struct xhci_plat_priv dwc3_xhci_plat_priv = {
+	.quirks = XHCI_SKIP_PHY_INIT,
+};
 
 static int dwc3_host_get_irq(struct dwc3 *dwc)
 {
@@ -95,6 +100,11 @@ int dwc3_host_init(struct dwc3 *dwc)
 		goto err;
 	}
 
+	ret = platform_device_add_data(xhci, &dwc3_xhci_plat_priv,
+					sizeof(dwc3_xhci_plat_priv));
+	if (ret)
+		goto err;
+
 	memset(props, 0, sizeof(struct property_entry) * ARRAY_SIZE(props));
 
 	if (dwc->usb3_lpm_capable)
@@ -160,4 +170,5 @@ err:
 void dwc3_host_exit(struct dwc3 *dwc)
 {
 	platform_device_unregister(dwc->xhci);
+	dwc->xhci = NULL;
 }
